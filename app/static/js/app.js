@@ -100,11 +100,92 @@ const Login_form = Vue.component('login-form', {
         }
 });
 
+const Register_form = Vue.component('register-form', {
+    template: `
+    <div>
+        <div v-if="visible">
+            <div v-if="errors" class="alert alert-danger">
+                <li v-for="error in errors">{{ error }}</li>
+            </div>
+            <div v-else class="alert alert-success">Registered Successful</div>
+        </div>
+    
+    <form @submit.prevent="Register();visible = true" id="RegisterForm">
+        <label>Username</label>
+        <input type="text" name="username" class="form-group form-control">
+
+        <label>Password</label>
+        <input type="password" name="password" class="form-group form-control">
+
+        <label>First Name</label>
+        <input type="text" name="firstname" class="form-group form-control">
+
+        <label>Last Name</label>
+        <input type="text" name="lastname" class="form-group form-control">
+
+        <label>gender</label>
+        <select name="gender" class="form-group form-control">
+            <option value="m" name="male">male</option>
+            <option value="f" name="female">female</option>
+        </select>
+    
+        <label>Email</label>
+        <input type="text" name="email" class="form-group form-control">
+
+        <label>Location (City,Country)</label>
+        <input type="text" name="location" class="form-group form-control">
+
+        <label>Biograpy</label>
+        <textarea name="biography" class="form-group form-control"> </textarea>
+
+        <label>Profile Photo</label>
+        <input type="file" name="photo" class="form-group form-control">
+        
+        <input type="submit" class="btn btn-primary" >
+    </form>
+    </div>
+    `,
+    methods : {
+        Register : function(){
+            let self = this;
+            
+            let RegisterForm = document.getElementById('RegisterForm');
+            let form_data = new FormData(RegisterForm);
+            fetch("/api/users/register", {
+            method: 'POST',
+            body : form_data,
+            headers: {
+                'X-CSRFToken': token
+                },
+                credentials: 'same-origin'
+            })
+            .then(function (response) {
+                return response.json();
+            })
+            .then(function (jsonResponse) {
+            // display a success message
+                self.errors = jsonResponse.errors;
+                console.log(jsonResponse);
+            })
+            .catch(function (error) {
+                console.log(error);
+            });
+                    }
+            },
+        data : function(){
+            return {
+                errors:[],
+                visible: false
+            }
+        }
+});
+
 // Define Routes
 const router = new VueRouter({
     routes: [
         { path: "/", component: Home },
-        {path: "/login", component: Login_form}
+        {path: "/login", component: Login_form},
+        {path: "/register", component: Register_form}
     ]
 });
 

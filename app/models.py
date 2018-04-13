@@ -15,8 +15,7 @@ class UserProfile(db.Model):
     pic = db.Column(db.String(255))
     joined_on = db.Column(db.String(80))
     
-    def __init__(self, userid, uname,password, fname, lname, gender, email, location, bio, pic, joined):
-        self.id = userid
+    def __init__(self, uname,password, fname, lname, gender, email, location, bio, pic, joined):
         self.user_name = uname
         self.password = generate_password_hash(password)
         self.first_name = fname
@@ -46,7 +45,7 @@ class UserProfile(db.Model):
             return str(self.id)  # python 3 support
 
     def __repr__(self):
-        return '<User %r>' % (self.user_name)
+        return "<User (username = '%s', firstname= '%s' joined: '%s' )>" % (self.user_name, self.first_name, self.joined_on)
 
 ##Posts Table to store user posts information
 class UserPosts(db.Model):
@@ -112,10 +111,15 @@ class UserLikes(db.Model):
  
  
 ##Follow table to store the id number of a user they are following   
+
+#NOTICE  File "/home/ubuntu/workspace/app/models.py", line 117, in UserFollows
+#    user_id = db.Column(db.Integer(7))
+#     TypeError: object() takes no parameters
+# You can't put 7 in the bracket because Integer doesn't take a value
 class UserFollows(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer(7))
-    follow_id = db.Column(db.Integer(7))
+    user_id = db.Column(db.Integer)
+    follow_id = db.Column(db.Integer)
     
     def __init__(self, followid, userid, followerid):
         self.id = followid

@@ -5,7 +5,7 @@ Werkzeug Documentation:  http://werkzeug.pocoo.org/documentation/
 This file creates your application.
 """
 
-from app import app, db
+from app import app, db, login_manager
 from werkzeug.utils import secure_filename
 from flask import render_template, request, redirect, url_for, flash,jsonify,abort
 import os
@@ -59,10 +59,21 @@ def register():
             
             er = None
             msg = "User Create Successfully"
+            userData = {'id': newuser.id, 
+            'email': newuser.email,
+            'usernname': newuser.user_name, 
+            'gender': newuser.gender, 
+            'firstname': newuser.first_name, 
+            'lastname': newuser.last_name, 
+            'location': newuser.location, 
+            'bio': newuser.biography, 
+            'profile_pic': newuser.pic, 
+            'joined': newuser.joined_on}
             
-            return jsonify(error = er , message = msg)
+            return jsonify(error = er , data = {"newuser": userData}, message = msg)
         else:
-            return jsonify(error=True, message="Username and/or email already exist")
+            msg = "Username and/or email already exist"
+            return jsonify(error=[msg], message="Username and/or email already exist")
     else:
         return jsonify(errors = form_errors(form))
 
@@ -126,6 +137,10 @@ def form_errors(form):
 
 def format_date_joined(d):
     return d.strftime("%b, %Y");
+    
+@login_manager.user_loader
+def load_user(id):
+    return UserProfile.query.get(int(id))
     
     
 @app.route('/<file_name>.txt')
