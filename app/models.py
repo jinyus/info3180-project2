@@ -56,7 +56,7 @@ class UserPosts(db.Model):
     caption = db.Column(db.String(255))
     created_on = db.Column(db.String(80))
     
-    def __init__(self, postsid, userid, pic, caption, created):
+    def __init__(self, postid, userid, pic, caption, created):
         self.id = postid
         self.user_id = self.userid
         self.pic = pic
