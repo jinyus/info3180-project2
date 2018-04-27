@@ -105,17 +105,67 @@ const Profile = Vue.component('profile', {
 
 const Posts = Vue.component('posts', {
     template: `
-    <form>
-      <h1>New Post</h1>
-      <div class="form">
-        <label>Photo</label>
-        <input type="file" name="photo" class="form-group form-control"/>
-        <label>Caption</label>
-        <textarea name="caption" class="form-group form-control" placeholder="Write a caption..."></textarea>
-        <input type="submit" class="form-control btn btn-success font-weight-bold" value="Submit"/>
+    <div>
+      <div v-if="visible">
+        <div v-if="error" class="alert alert-danger">{{ error }}</div>
+        <div v-else class="alert alert-success">Post created successfully</div>
       </div>
-    </form>
-    `
+        
+      <form @submit.prevent="post(); visible=true" id="post-form">
+        <h1>New Post</h1>
+        <div class="form">
+          <label>Photo</label>
+          <input type="file" name="photo" class="form-group form-control"/>
+          <label>Caption</label>
+          <textarea name="caption" class="form-group form-control" placeholder="Write a caption..."></textarea>
+          <input type="submit" class="form-control btn btn-success font-weight-bold" value="Submit"/>
+        </div>
+      </form>
+    </div>
+    `,
+    
+    data : function(){
+      return {
+        error: null,
+        visible: false,
+        // userPath: ""
+      }
+    },
+    
+    methods : {
+      post : function(){
+        let self = this;
+        let postForm = document.getElementById('post-form');
+        let form_data = new FormData(postForm);
+        // fetch("/api/users/<userid>/posts", {
+        fetch("/api/users/3/posts", {
+        method: 'POST',
+        body : form_data,
+        headers: {
+            'X-CSRFToken': token
+            },
+            credentials: 'same-origin'
+        })
+        .then(function (response) {
+            return response.json();
+        })
+        .then(function (jsonResponse) {
+        // display a success message
+          if (jsonResponse.error == true) {self.error = jsonResponse.message;}
+          console.log(jsonResponse);
+        })
+        .catch(function (error) {
+            console.log(error);
+        });
+      }
+    }
+    
+    // created() {
+    //   let self = this;
+    //   event.$on("loggedIn", function(id){
+    //     self.userPath = "/users/" + id;
+    //   });
+    // }
 });
 
 const Login_form = Vue.component('login-form', {

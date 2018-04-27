@@ -123,8 +123,8 @@ def allPosts():
     else:
         abort(405)
         
-@app.route('/api/users/<int:userid>/posts', methods=['GET','POST'])
-def userPosts(userid):
+@app.route('/api/users/<userid>/posts', methods=['GET','POST'])
+def userPosts(intuserid):
     form = PostsForm()
     if request.method == 'GET':
         user = UserProfile.query.filter_by(id = userid).first()
@@ -148,11 +148,7 @@ def userPosts(userid):
                 pic = form.photo.data
                 caption =  form.caption.data
                 date = format_date_joined(datetime.now())
-                filename = secure_filename(pic.filename)
-                pic.save(os.path.join(
-                app.config['UPLOAD_FOLDER'], filename
-                ))
-                newpost  =UserPosts(userid,filename,caption, date)
+                newpost  =UserPosts(userid,pic,caption, date)
                 db.session.add(newpost)
                 db.session.commit()
                 
@@ -161,7 +157,7 @@ def userPosts(userid):
                 return jsonify(error=er, message=msg)
             else:
                 er=True
-                msg = "You can only create posts for yourself. Your id is {} and you are trying to create a post for user with the id {}".format(current_user.id,userid)
+                msg = "You can only create posts for yourself. You id is {} and you are trying to create a post for user with the id {}".format(current_user.id, userid)
                 return jsonify(error=er , message = msg)
                 
 @app.route('/api/users/<userid>/follow',methods = ['POST'])
