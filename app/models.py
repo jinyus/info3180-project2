@@ -27,7 +27,8 @@ class UserProfile(db.Model):
         self.pic = pic
         self.joined_on = joined
         
-        
+    def check_password(self, password):
+        return check_password_hash(self.password, password)  
 
     def is_authenticated(self):
         return True
@@ -47,7 +48,7 @@ class UserProfile(db.Model):
     def __repr__(self):
         return "<User (username = '%s', firstname= '%s' joined: '%s' )>" % (self.user_name, self.first_name, self.joined_on)
 
-##Posts Table to store user posts information
+#Posts Table to store user posts information
 class UserPosts(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer)
@@ -55,9 +56,8 @@ class UserPosts(db.Model):
     caption = db.Column(db.String(255))
     created_on = db.Column(db.String(80))
     
-    def __init__(self, postid, userid, pic, caption, created):
-        self.id = postid
-        self.user_id = self.userid
+    def __init__(self, userid, pic, caption, created):
+        self.user_id = userid
         self.pic = pic
         self.caption = caption
         self.created_on = created
@@ -78,7 +78,7 @@ class UserPosts(db.Model):
             return str(self.id)  # python 3 support
 
     def __repr__(self):
-        return '<User %r>' % (self.first_name)
+        return '<User %r>' % (self.id,)
 
 ##Likes Tbale to user likes information  
 class UserLikes(db.Model):
@@ -86,9 +86,8 @@ class UserLikes(db.Model):
     user_id = db.Column(db.Integer)
     post_id = db.Column(db.Integer)
     
-    def __init__(self, likeid, userid, postid):
-        self.id = likeid
-        self.user_id = self.userid
+    def __init__(self, userid, postid):
+        self.user_id = userid
         self.post_id = postid
 
     def is_authenticated(self):
@@ -107,7 +106,7 @@ class UserLikes(db.Model):
             return str(self.id)  # python 3 support
 
     def __repr__(self):
-        return '<User %r>' % (self.first_name)
+        return '<User %r>' % (self.id)
  
  
 ##Follow table to store the id number of a user they are following   
@@ -121,10 +120,9 @@ class UserFollows(db.Model):
     user_id = db.Column(db.Integer)
     follow_id = db.Column(db.Integer)
     
-    def __init__(self, followid, userid, followerid):
-        self.id = followid
-        self.userid = userid
-        self.follow_id = followerid
+    def __init__(self, following_id, followed_id):
+        self.userid = following_id
+        self.follow_id = followed_id
 
     def is_authenticated(self):
         return True
@@ -142,4 +140,4 @@ class UserFollows(db.Model):
             return str(self.id)  # python 3 support
 
     def __repr__(self):
-        return '<User %r>' % (self.first_name)
+        return '<User %r>' % (self.id)

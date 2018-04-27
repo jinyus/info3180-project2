@@ -7,14 +7,16 @@ This file creates your application.
 
 from app import app, db, login_manager
 from werkzeug.utils import secure_filename
-from flask import render_template, request, redirect, url_for, flash,jsonify,abort
+from flask import render_template, request, redirect, url_for, flash,jsonify,abort,g 
 import os
-from forms import RegisterForm, LoginForm
+from forms import RegisterForm, LoginForm, PostsForm
 from datetime import datetime
-from models import UserProfile
+from models import UserProfile, UserPosts,UserFollows,UserLikes
 from flask_login import login_user, logout_user, current_user, login_required
-
-
+#import jwt
+from flask import _request_ctx_stack
+from functools import wraps
+import base64
 
 
 ###
@@ -52,7 +54,6 @@ def register():
         
             #photoUrl = url_for('static', filename="uploads/" + filename)
             
-            
             newuser = UserProfile(username,password,firstname,lastname,gender,email,location,biography,filename,joined)
             db.session.add(newuser)
             db.session.commit()
@@ -87,12 +88,12 @@ def login():
             
             user = db.session.query(UserProfile).filter_by(user_name=username).first()
             
-            if user is not None and user.password == password:
+            if user is not None and user.check_password(password):
                 login_user(user)
                 
                 er = None
                 msg = "User successfully logged in."
-                return jsonify(errors = er , message = msg)
+                return jsonify(errors = er , message = msg, id = user.id)
             else:
                 er = True
                 msg = 'Invalid username or password'
@@ -107,15 +108,103 @@ def logout():
     if request.method == 'POST':
         logout_user()
         er =None
-        msg = "User successfully logged in."
+        msg = "User successfully logged out."
         return jsonify(errors = er, message = msg)
     else:
         abort(405)
         
+@app.route('/api/allposts/', methods=['GET'])
+def allPosts():
+    if request.method == 'GET':
+        allposts = UserPosts.query.all().items
+        er =None
+        msg = "All Posts by all users"
+        return jsonify(errors = er, message = msg, posts=allposts)
+    else:
+        abort(405)
+        
+@app.route('/api/users/<userid>/posts', methods=['GET','POST'])
+def userPosts(userid):
+    form = PostsForm()
+    if request.method == 'GET':
+        user = UserProfile.query.filter_by(id = userid).first()
+        if user is not None:
+            userposts = UserPosts.query.filter_by(user_id = userid ).items
+            if userposts is not None:
+                msg = "All post by user successfully fetched"
+                er = None
+                return jsonify(error=er,message=msg,posts=userposts)
+            else:
+               er = True
+               msg = "User has no posts"
+               return jsonify(error=er,message=msg)
+        else:
+            er=True
+            msg = "User does not exist"
+            return jsonify(error=er,message=msg)
+    elif request.method == 'POST':
+        if form.validate_on_submit():
+            if current_user.id == userid:
+                pic = form.photo.data
+                caption =  form.caption.data
+                date = format_date_joined(datetime.now())
+                newpost  =UserPosts(userid,pic,caption, date)
+                db.session.add(newpost)
+                db.session.commit()
+                
+                er = None
+                msg = "Post created successfull"
+                return jsonify(error=er, message=msg)
+            else:
+                er=True
+                msg = "You can only create posts for yourself"
+                return jsonify(error=er , message = msg)
+                
+@app.route('/api/users/<userid>/follow',methods = ['POST'])
+def follow(userid):
+    if request.method == 'POST':
+        current = current_user
+        target = UserProfile.query.filter_by(id = userid).first()
+        if target is not None:
+            new_follow_relationship = UserFollows(current.id,target.id)
+            db.session.add(new_follow_relationship)
+            db.session.commit()
+            er = None
+            msg ="{} is now following {}".format(current.user_name,target.user_name)
+            return jsonify(error=er,message=msg)
+        else:
+            er = True
+            msg ="Target user doesn't exists"
+            return jsonify(error=er,message=msg)
+    else:
+        abort(405)
 
+@app.route('/api/posts/<postid>/like', methods=['POST'])
+def like(postid):
+    if request.method == 'POST':
+        user = current_user
+        post = UserPosts.query.filter_by(id = postid).first()
+        if post is not None:
+            new_like = UserLikes(user.id,post.id)
+            db.session.add(new_like)
+            db.session.commit()
         
+            er=None
+            msg ="{} liked this post".format(user.user_name)
+            return jsonify(error=er,message=msg)
+        else:
+            er=True
+            msg ="Invalid post id"
+            return jsonify(error=er,message=msg)
+    else:
+        abort(405)
         
-    
+@app.route('/token')
+def generate_token():
+    payload = {'sub': '12345', 'name': 'John Doe'}
+    token = jwt.encode(payload, 'some-secret', algorithm='HS256')
+
+    return jsonify(error=None, data={'token': token}, message="Token Generated")
 
 
 ###
@@ -137,10 +226,40 @@ def form_errors(form):
 
 def format_date_joined(d):
     return d.strftime("%b, %Y");
+
+def requires_auth(f):
+  @wraps(f)
+  def decorated(*args, **kwargs):
+    auth = request.headers.get('Authorization', None)
+    if not auth:
+      return jsonify({'code': 'authorization_header_missing', 'description': 'Authorization header is expected'}), 401
+
+    parts = auth.split()
+
+    if parts[0].lower() != 'bearer':
+      return jsonify({'code': 'invalid_header', 'description': 'Authorization header must start with Bearer'}), 401
+    elif len(parts) == 1:
+      return jsonify({'code': 'invalid_header', 'description': 'Token not found'}), 401
+    elif len(parts) > 2:
+      return jsonify({'code': 'invalid_header', 'description': 'Authorization header must be Bearer + \s + token'}), 401
+
+    token = parts[1]
+    try:
+         payload = jwt.decode(token, 'some-secret')
+
+    except jwt.ExpiredSignature:
+        return jsonify({'code': 'token_expired', 'description': 'token is expired'}), 401
+    except jwt.DecodeError:
+        return jsonify({'code': 'token_invalid_signature', 'description': 'Token signature is invalid'}), 401
+
+    g.current_user = user = payload
+    return f(*args, **kwargs)
+
+  return decorated
     
 @login_manager.user_loader
 def load_user(id):
-    return UserProfile.query.get(int(id))
+    return db.session.query(UserProfile).get(int(id))
     
     
 @app.route('/<file_name>.txt')
