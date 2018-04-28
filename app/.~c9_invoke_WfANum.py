@@ -114,28 +114,12 @@ def logout():
         abort(405)
         
 @app.route('/api/posts/', methods=['GET'])
-def Posts():
+def allPosts():
     if request.method == 'GET':
-        allposts = UserPosts.query.all()
-        posts_list = []
-        for post in allposts:
-            post_creator = UserProfile.query.filter_by(id=post.user_id).first()
-            profile_pic = post_creator.pic
-            likes_count = UserLikes.query.filter_by(post_id = post.id).count()
-            post_dict ={
-            "Post_creator":post_creator.user_name,
-            "profile_pic": profile_pic,
-            "id":post.id,
-            "likes":likes_count,
-            "userid":post.user_id,
-            "pic":post.pic,
-            "caption":post.caption,
-            "created_on":post.created_on
-            }
-            posts_list.append(post_dict)
+        allposts = UserPosts.query.all().items
         er =None
         msg = "All Posts by all users"
-        return jsonify(errors = er, message = msg, posts=posts_list)
+        return jsonify(errors = er, message = msg, posts=allposts)
     else:
         abort(405)
         
@@ -145,27 +129,11 @@ def userPosts(userid):
     if request.method == 'GET':
         user = UserProfile.query.filter_by(id = userid).first()
         if user is not None:
-            userposts = UserPosts.query.filter_by(user_id = userid)
+            userposts = UserPosts.query.filter_by(user_id = userid ).items
             if userposts is not None:
-                posts_list=[]
-                for post in userposts:
-                    post_creator = UserProfile.query.filter_by(id=post.user_id).first()
-                    profile_pic = post_creator.pic
-                    likes_count = UserLikes.query.filter_by(post_id = post.id).count()
-                    post_dict ={
-                    "Post_creator":post_creator.user_name,
-                    "profile_pic": profile_pic,
-                    "id":post.id,
-                    "likes":likes_count,
-                    "userid":post.user_id,
-                    "pic":post.pic,
-                    "caption":post.caption,
-                    "created_on":post.created_on
-                    }
-                    posts_list.append(post_dict)
-                msg = "All posts by {} successfully fetched".format(user.user_name)
+                msg = "All post by user successfully fetched"
                 er = None
-                return jsonify(error=er,message=msg,posts=posts_list)
+                return jsonify(error=er,message=msg,posts=userposts)
             else:
                er = True
                msg = "User has no posts"
@@ -235,37 +203,6 @@ def like(postid):
     else:
         abort(405)
         
-@app.route('/api/u/<int:id>', methods=['GET','POST'])
-def userInfo(id):
-    if request.method == 'GET':
-        user = UserProfile.query.filter_by(id = id).first()
-        if user is not None:
-            posts_count = UserPosts.query.filter_by(user_id=id).count()
-            follower_count = UserFollows.query.filter_by(user_id=id).count()
-            userData = {
-            'id': user.id, 
-            'email': user.email,
-            'usernname': user.user_name, 
-            'gender': user.gender, 
-            'firstname': user.first_name, 
-            'lastname': user.last_name, 
-            'location': user.location, 
-            'bio': user.biography, 
-            'profile_pic': user.pic, 
-            'joined': user.joined_on,
-            'follower_count': follower_count,
-            'posts_count':posts_count
-            }
-            er = None
-            msg= "Info for {} successfully fetched".format(user.user_name)
-            return jsonify(error=er, message=msg , user_info = [userData])
-        else:
-            er = True
-            msg= "User doesn't exist"
-            return jsonify(error=er,message=msg)
-    else:
-        abort(405)
-        
 @app.route('/token')
 def generate_token():
     payload = {'sub': '12345', 'name': 'John Doe'}
@@ -292,7 +229,7 @@ def form_errors(form):
     return error_messages
 
 def format_date_joined(d):
-    return d.strftime("%d %b, %Y");
+    return d.strftime("%b, %Y");
 
 def requires_auth(f):
   @wraps(f)

@@ -1,6 +1,6 @@
 /* Add your Application JavaScript */
 
-event = new Vue();
+let event = new Vue();
 
 Vue.component('app-header', {
     template: `
@@ -38,7 +38,8 @@ Vue.component('app-header', {
     data: function(){
       return {
         loggedIn: false,
-        userPath: ""
+        userPath: "",
+        IDholder:null
       }
     },
     
@@ -58,6 +59,10 @@ Vue.component('app-header', {
       event.$on("loggedOut", function(){
           self.show();
       });
+      
+      event.$on("PostCompCreated", function(){
+        event.$emit("IDsignal", self.IDholder);
+    });
     }
 });
 
@@ -93,14 +98,207 @@ const Home = Vue.component('home', {
 
 const Explore = Vue.component('explore', {
     template: `
+    <div>
       <router-link class="post-btn btn btn-primary font-weight-bold" to="/posts/new">New Post<span class="sr-only">(current)</span></router-link>
-    `
+      <div v-for="post in posts">
+        <div v-html="post"></div>
+      </div>
+    </div>
+    `,
+    
+    data : function(){
+      return {
+        posts: []
+      }
+    },
+    
+    created : function(){
+      let self = this;
+      let post = '';
+      fetch("/api/posts/", {
+      method: 'GET',
+      headers: {
+          'X-CSRFToken': token
+          },
+          credentials: 'same-origin'
+      })
+      .then(function (response) {
+          return response.json();
+      })
+      .then(function (jsonResponse) {
+      // display a success message
+        console.log(jsonResponse);
+        
+        let p = jsonResponse.posts;
+        for (i = 0; i < p.length; i++){
+          post += '<div class="form, post"><div class="post-header"><a href="#/users/' + p[i].userid + 
+                  '"><img src="static/uploads/' + p[i].profile_pic + '"/><span>' + p[i].Post_creator + '</span></a>' +
+                  '</div><div class="posted-img text-center"><img src="static/uploads/' + p[i].pic + '"/></div>' +
+                  '<div class="caption">' + p[i].caption + '</div><div class="post-footer">' + 
+                  '<span><span class="like-icon"><i class="fa fa-heart-o"></i></span>' + p[i].likes +
+                  ' Likes</span><span class="float-right">' + p[i].created_on + '</span></div></div>';
+          
+          self.posts.push(post);
+          post = '';
+        }
+      })
+      .catch(function (error) {
+          console.log(error);
+      });
+    }
 });
 
 const Profile = Vue.component('profile', {
     template: `
+    <div>
+      <div class="form profile-header">
+        <img class="float-left" :src="photo"/>
+        <div class="profile-right float-right text-center">
+          <div class="num-posts float-left">
+            <p class="font-weight-bold">{{post_count}}<p/>
+            <p>Posts<p/>
+          </div>
+          <div class="followers float-right">
+            <p class="font-weight-bold">{{followers}}<p/>
+            <p>Followers<p/>
+          </div>
+        </div>
+        <div class="profile-mid">
+          <p class="font-weight-bold p-name">{{firstname}} {{lastname}}</p>
+          <p>{{location}}</p>
+          <p>Member since {{joined}}</p>
+          <p class="p-bio">{{bio}}</p>
+        </div>
+      </div>
+      
+      <div class="grid-wrapper">
+        <div v-for="post in userPosts" class="grid-item">
+          <img :src="post.photo" :id="post.postID" @click="viewPost($event)" data-toggle="modal" data-target="#myModal"/>
+        </div>
 
-    `
+        <div class="modal fade" id="myModal" role="dialog">
+          <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+              <div class="modal-header">
+                <div class="post-header"><img id="modal-profile-pic"/><span id="modal-username"></span></div>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <h4 class="modal-title"></h4>
+              </div>
+              <div class="text-center modal-body">
+                <img id="modal-photo"/>
+                <div id="modal-caption" class="caption"></div>
+              </div>
+              <div class="modal-footer">
+                <span><span class="like-icon float-left"><i class="fa fa-heart-o"></i></span><span id="modal-likes" class="font-weight-bold"></span></span>
+                <span id="modal-date"class="font-weight-bold"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+    `,
+    
+    // <div class="follow-btn font-weight-bold">Follow</div>
+    
+    data(){
+      return{
+        userPosts: [],
+        photo: "",
+        firstname: "",
+        lastname: "",
+        location: "",
+        bio: "",
+        joined: "",
+        followers: "",
+        post_count: ""
+      }
+    },
+    
+    methods: {
+      viewPost: function(e) {
+        let self = this;
+        let modalPhoto = document.querySelector("#modal-photo");
+        let modalCaption = document.querySelector("#modal-caption");
+        let modalLikes = document.querySelector("#modal-likes");
+        let modalDate = document.querySelector("#modal-date");
+        let modalProfilePic = document.querySelector("#modal-profile-pic");
+        let modalUsername = document.querySelector("#modal-username");
+        for (i = 0; i < self.userPosts.length; i++) {
+          if (self.userPosts[i].postID == e.currentTarget.id) {
+            modalPhoto.setAttribute("src", self.userPosts[i].photo);
+            modalCaption.innerHTML =  self.userPosts[i].caption;
+            modalLikes.innerHTML =  self.userPosts[i].likes + " Likes";
+            modalDate.innerHTML =  self.userPosts[i].created;
+            modalProfilePic.setAttribute("src", self.userPosts[i].profilePic);
+            modalUsername.innerHTML =  self.userPosts[i].username;;
+          }
+        }
+      }
+    },
+    
+    created : function(){
+      let self = this;
+      fetch("/api/u/" + this.$parent.userID, {
+      method: 'GET',
+      headers: {
+          'X-CSRFToken': token
+          },
+          credentials: 'same-origin'
+      })
+      .then(function (response) {
+          return response.json();
+      })
+      .then(function (jsonResponse) {
+      // display a success message
+        console.log(jsonResponse);
+        
+        let user = jsonResponse.user_info[0];
+        self.photo = "static/uploads/" + user.profile_pic;
+        self.firstname = user.firstname;
+        self.lastname = user.lastname;
+        self.location = user.location;
+        self.bio = user.bio;
+        self.joined = user.joined;
+        self.followers = user.follower_count;
+        self.post_count = user.posts_count;
+      })
+      .catch(function (error) {
+          console.log(error);
+      });
+      
+      fetch("/api/users/" + this.$parent.userID + "/posts", {
+      method: 'GET',
+      headers: {
+          'X-CSRFToken': token
+          },
+          credentials: 'same-origin'
+      })
+      .then(function (response) {
+          return response.json();
+      })
+      .then(function (jsonResponse) {
+      // display a success message
+        console.log(jsonResponse);
+        
+        let p = jsonResponse.posts;
+        for (i = 0; i < p.length; i++){
+          self.userPosts.push({
+            "photo": "static/uploads/" + p[i].pic, 
+            "postID": p[i].id,
+            "caption": p[i].caption,
+            "created": p[i].created_on,
+            "likes": p[i].likes,
+            "profilePic": "static/uploads/" + p[i].profile_pic,
+            "username": p[i].Post_creator
+          });
+        }
+      })
+      .catch(function (error) {
+          console.log(error);
+      });
+    }
 });
 
 const Posts = Vue.component('posts', {
@@ -127,8 +325,7 @@ const Posts = Vue.component('posts', {
     data : function(){
       return {
         error: null,
-        visible: false,
-        // userPath: ""
+        visible: false
       }
     },
     
@@ -137,8 +334,7 @@ const Posts = Vue.component('posts', {
         let self = this;
         let postForm = document.getElementById('post-form');
         let form_data = new FormData(postForm);
-        // fetch("/api/users/<userid>/posts", {
-        fetch("/api/users/3/posts", {
+        fetch("/api/users/" + this.$parent.userID + "/posts", {
         method: 'POST',
         body : form_data,
         headers: {
@@ -159,13 +355,6 @@ const Posts = Vue.component('posts', {
         });
       }
     }
-    
-    // created() {
-    //   let self = this;
-    //   event.$on("loggedIn", function(id){
-    //     self.userPath = "/users/" + id;
-    //   });
-    // }
 });
 
 const Login_form = Vue.component('login-form', {
@@ -349,7 +538,8 @@ const Register_form = Vue.component('register-form', {
 const router = new VueRouter({
     data: function(){
       return {
-        userPath: ""
+        userPath: "",
+        userid : null
       }
     },
     
@@ -357,6 +547,7 @@ const router = new VueRouter({
       let self = this;
       event.$on("loggedIn", function(id){
         self.userPath = "/users/" + id;
+        self.userid=id;
       });
     },
     
@@ -365,7 +556,9 @@ const router = new VueRouter({
         {path: "/login", component: Login_form},
         {path: "/register", component: Register_form},
         {path: "/explore", component: Explore},
-        {path: "" + this.userPath, component: Profile},
+        //{path: "" + this.userPath, component: Profile},
+        {path: "/users/:userid", component: Profile},
+        {path: "/testing", component: Profile},
         {path: "/posts/new", component: Posts},
         {path: "/logout", component: Logout}
     ]
@@ -375,7 +568,8 @@ const router = new VueRouter({
 let app = new Vue({
     el: "#app",
     data : {
-        token : ''
+        token : '',
+        userID: null
     },
     methods: {
         // Usually the generation of a JWT will be done when a user either registers
@@ -406,5 +600,13 @@ let app = new Vue({
             alert('Token removed!');
         }
     },
+    
+    created : function() {
+      let self = this;
+      event.$on("loggedIn", function(id){
+        self.userID =  id;
+      });
+    },
+    
     router
 });

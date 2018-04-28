@@ -78,7 +78,7 @@ class UserPosts(db.Model):
             return str(self.id)  # python 3 support
 
     def __repr__(self):
-        return '<User %r>' % (self.id,)
+        return '<User %r>' % (self.id)
 
 ##Likes Tbale to user likes information  
 class UserLikes(db.Model):
