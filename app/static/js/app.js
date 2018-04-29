@@ -38,8 +38,7 @@ Vue.component('app-header', {
     data: function(){
       return {
         loggedIn: false,
-        userPath: "",
-        IDholder:null
+        userPath: ""
       }
     },
     
@@ -59,10 +58,6 @@ Vue.component('app-header', {
       event.$on("loggedOut", function(){
           self.show();
       });
-      
-      event.$on("PostCompCreated", function(){
-        event.$emit("IDsignal", self.IDholder);
-    });
     }
 });
 
@@ -115,7 +110,6 @@ const Explore = Vue.component('explore', {
           </div>
         </div>
       </div>
-      
     </div>
     `,
     
@@ -223,79 +217,88 @@ const Explore = Vue.component('explore', {
 const Profile = Vue.component('profile', {
     template: `
     <div>
-        <div v-if="this.$parent.show">
-      <div class="form profile-header">
-        <img class="float-left" :src="photo"/>
-        <div class="profile-right float-right text-center">
-          <div class="num-posts float-left">
-            <p class="font-weight-bold">{{post_count}}<p/>
-            <p>Posts<p/>
-          </div>
-          <div class="followers float-right">
-            <p class="font-weight-bold">{{followers}}<p/>
-            <p>Followers<p/>
-          </div>
-          
-          <div v-if="!currentUser">
-            <div v-if="following">
-              <button data-toggle="tooltip" title="You're following this user!" disabled="true" class="follow-btn font-weight-bold following"><span data-toggle="modal" data-target="#followModal" id="following-text">Following</span></button>
+      <div>
+        <div class="form profile-header">
+          <img class="float-left" :src="photo"/>
+          <div class="profile-right float-right text-center">
+            <div class="num-posts float-left">
+              <p class="font-weight-bold">{{post_count}}<p/>
+              <p>Posts<p/>
             </div>
-            <div v-else>
-              <button @click="follow($event)" class="follow-btn font-weight-bold">Follow</button>
+            <div class="followers float-right">
+              <p class="font-weight-bold">{{followers}}<p/>
+              <p>Followers<p/>
             </div>
-          </div>
+            
+            <div v-if="!currentUser">
+              <div v-if="following">
+                <button @click="unfollow($event)" class="follow-btn font-weight-bold following">Following</button>
+              </div>
+              <div v-else>
+                <button @click="follow($event)" class="follow-btn font-weight-bold">Follow</button>
+              </div>
+            </div>
           
-          <div class="modal fade" id="followModal" role="dialog">
+          </div>
+          <div class="profile-mid">
+            <p class="font-weight-bold p-name">{{firstname}} {{lastname}}</p>
+            <p>{{location}}</p>
+            <p>Member since {{joined}}</p>
+            <p class="p-bio">{{bio}}</p>
+          </div>
+        </div>
+        
+        <div class="grid-wrapper">
+          <div v-for="post in userPosts" class="grid-item">
+            <img :src="post.photo" :id="post.postID" @click="viewPost($event)" data-toggle="modal" data-target="#myModal"/>
+          </div>
+  
+          <div class="modal fade" id="myModal" role="dialog">
             <div class="modal-dialog modal-lg">
               <div class="modal-content">
                 <div class="modal-header">
-                  <span class="font-weight-bold">You're already following this user!</span>
+                  <div class="post-header"><img id="modal-profile-pic"/><span id="modal-username"></span></div>
                   <button type="button" class="close" data-dismiss="modal">&times;</button>
+                  <h4 class="modal-title"></h4>
                 </div>
-                <div class="modal-footer"></div>
+                <div class="text-center modal-body">
+                  <img id="modal-photo"/>
+                  <div id="modal-caption" class="caption"></div>
+                </div>
+                <div class="modal-footer">
+                  <span><span class="like-icon float-left"><i class="fa fa-heart-o"></i></span><span id="modal-likes" class="font-weight-bold"></span></span>
+                  <span id="modal-date"class="font-weight-bold"></span>
+                </div>
               </div>
             </div>
           </div>
-        
+          
         </div>
-        <div class="profile-mid">
-          <p class="font-weight-bold p-name">{{firstname}} {{lastname}}</p>
-          <p>{{location}}</p>
-          <p>Member since {{joined}}</p>
-          <p class="p-bio">{{bio}}</p>
-        </div>
-      </div>
-      
-      <div class="grid-wrapper">
-        <div v-for="post in userPosts" class="grid-item">
-          <img :src="post.photo" :id="post.postID" @click="viewPost($event)" data-toggle="modal" data-target="#myModal"/>
-        </div>
-
-        <div class="modal fade" id="myModal" role="dialog">
-          <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-              <div class="modal-header">
-                <div class="post-header"><img id="modal-profile-pic"/><span id="modal-username"></span></div>
-                <button type="button" class="close" data-dismiss="modal">&times;</button>
-                <h4 class="modal-title"></h4>
-              </div>
-              <div class="text-center modal-body">
-                <img id="modal-photo"/>
-                <div id="modal-caption" class="caption"></div>
-              </div>
-              <div class="modal-footer">
-                <span><span class="like-icon float-left"><i class="fa fa-heart-o"></i></span><span id="modal-likes" class="font-weight-bold"></span></span>
-                <span id="modal-date"class="font-weight-bold"></span>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-      </div>
       </div>
     </div>
     `,
     
+    // <div v-if="!currentUser">
+    //   <div v-if="following">
+    //     <button data-toggle="tooltip" title="You're following this user!" disabled="true" class="follow-btn font-weight-bold following"><span data-toggle="modal" data-target="#followModal" id="following-text">Following</span></button>
+    //   </div>
+    //   <div v-else>
+    //     <button @click="follow($event)" class="follow-btn font-weight-bold">Follow</button>
+    //   </div>
+    // </div>
+    
+    
+    // <div class="modal fade" id="followModal" role="dialog">
+    //   <div class="modal-dialog modal-lg">
+    //     <div class="modal-content">
+    //       <div class="modal-header">
+    //         <span class="font-weight-bold">You're already following this user!</span>
+    //         <button type="button" class="close" data-dismiss="modal">&times;</button>
+    //       </div>
+    //       <div class="modal-footer"></div>
+    //     </div>
+    //   </div>
+    // </div>
     
     data(){
       return{
@@ -337,8 +340,9 @@ const Profile = Vue.component('profile', {
       follow: function(e) {
         let self = this;
         self.followers++;
+        self.following = true;
         let followBtn = document.querySelector(".follow-btn");
-        followBtn.setAttribute("disabled", true);
+        // followBtn.setAttribute("disabled", true);
         followBtn.classList.add("following");
         followBtn.textContent = "Following";
         
@@ -361,7 +365,37 @@ const Profile = Vue.component('profile', {
           .catch(function (error) {
               console.log(error);
         });
+      },
+      
+      unfollow: function(e) {
+        let self = this;
+        self.followers--;
+        self.following = false;
+        let followBtn = document.querySelector(".follow-btn");
+        followBtn.classList.remove("following");
+        followBtn.textContent = "Follow";
+        
+        fetch("/api/users/" + this.$parent.userID + "/follow", {
+          method: 'PUT',
+          headers: {
+              'X-CSRFToken': token,
+              'Authorization': 'Bearer ' + localStorage.getItem('token')
+              },
+              credentials: 'same-origin'
+          })
+          .then(function (response) {
+              return response.json();
+          })
+          .then(function (jsonResponse) {
+          // display a success message
+              self.errors = jsonResponse.errors;
+              console.log(jsonResponse);
+          })
+          .catch(function (error) {
+              console.log(error);
+        });
       }
+      
     },
     
     created : function(){
@@ -527,7 +561,7 @@ const Login_form = Vue.component('login-form', {
             <div v-if="errors" class="alert alert-danger">
                 <li v-for="error in errors">{{ error }}</li>
             </div>
-            <div v-else class="alert alert-success">Logged in Successful</div>
+            <div v-else class="alert alert-success">Logged in Successful. You will be redirected soon.</div>
         </div>
     
     <form @submit.prevent="LogIn();visible = true" id="LoginForm">
@@ -564,7 +598,8 @@ const Login_form = Vue.component('login-form', {
                 self.errors = jsonResponse.errors;
                 if (jsonResponse.errors == null) {
                   event.$emit("loggedIn", jsonResponse.id);
-                  router.push('explore');
+                  //I did the route push after the token generation
+                  //router.push('explore');
                 }
                 console.log(jsonResponse);
             })
@@ -734,7 +769,8 @@ let app = new Vue({
         jwttoken : '',
         userID: null,
         current_userID: null,
-        show:true
+        show:true,
+        userLoggedIn:false
     },
     methods: {
         // Usually the generation of a JWT will be done when a user either registers
@@ -749,13 +785,14 @@ let app = new Vue({
                 'Content-Type': 'application/json'
                 
               },
-              body: JSON.stringify({'id': this.UserID})
+              body: JSON.stringify({id: this.UserID})
             })
                 .then(function (response) {
                     return response.json();
                 })
                 .then(function (response) {
-                    let jwt_token = response.data.token;
+                    let jwt_token = response.data['0'].token;
+                    console.log(response.data['0'].token)
 
                     // We store this token in localStorage so that subsequent API requests
                     // can use the token until it expires or is deleted.
@@ -780,18 +817,27 @@ let app = new Vue({
               self.show = true;
             }
             updatePro();
+          },
+          forceLogin(){
+            router.push('explore');
           }
     },
     
     created : function() {
       let self = this;
       event.$on("loggedIn", function(id){
+        self.getToken();
         self.userID =  id;
         self.current_userID =  id;
-        self.getToken();
+        //explore component will be created before the token gets a chance to be saved in LocalStorage, so it would make a request
+        //to the /api/posts endpont with an undefined token which will return an 'invalid token' error
+        //The solution is to set a timeout of 3s before pushing to the explore route
+        setTimeout(function(){ router.push('explore'); }, 3000);
+        self.userLoggedIn = true
       });
       event.$on("loggedOut", function(id){
         self.removeToken();
+        self.userLoggedIn = false
       });
     },
     

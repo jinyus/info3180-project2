@@ -17,8 +17,38 @@ import jwt
 from flask import _request_ctx_stack
 from functools import wraps
 import base64
-from flask_wtf.csrf import CSRFError
 
+
+def requires_auth(f):
+  @wraps(f)
+  def decorated(*args, **kwargs):
+    secret = app.config['SECRET_KEY']
+    auth = request.headers.get('Authorization', None)
+    if not auth:
+      return jsonify({'code': 'authorization_header_missing', 'description': 'Authorization header is expected'}), 401
+
+    parts = auth.split()
+
+    if parts[0].lower() != 'bearer':
+      return jsonify({'code': 'invalid_header', 'description': 'Authorization header must start with Bearer'}), 401
+    elif len(parts) == 1:
+      return jsonify({'code': 'invalid_header', 'description': 'Token not found'}), 401
+    elif len(parts) > 2:
+      return jsonify({'code': 'invalid_header', 'description': 'Authorization header must be Bearer + \s + token'}), 401
+
+    token = parts[1]
+    try:
+         payload = jwt.decode(token, secret)
+
+    except jwt.ExpiredSignature:
+        return jsonify({'code': 'token_expired', 'description': 'token is expired'}), 401
+    except jwt.DecodeError:
+        return jsonify({'code': 'token_invalid_signature: {}'.format(token), 'description': 'Token signature is invalid'}), 401
+
+    g.current_user = user = payload
+    return f(*args, **kwargs)
+
+  return decorated
 
 ###
 # Routing for your application.
@@ -105,6 +135,7 @@ def login():
         abort (405)
         
 @app.route('/api/auth/logout', methods=['POST'])
+@requires_auth
 def logout():
     if request.method == 'POST':
         logout_user()
@@ -115,15 +146,12 @@ def logout():
         abort(405)
         
 @app.route('/api/posts/', methods=['GET'])
+@requires_auth
 def Posts():
     if request.method == 'GET':
         allposts = UserPosts.query.all()
         posts_list = []
         user = current_user
-        if not user.is_authenticated:
-            er=True
-            msg="You must log in to view posts"
-            return jsonify(errors = er, message = msg),401
         def check_if_current_user_likes(user,post):
             likes = UserLikes.query.all()
             for like in likes:
@@ -156,7 +184,8 @@ def Posts():
     else:
         abort(405)
         
-@app.route('/api/users/<int:userid>/posts', methods=['GET','POST'])
+@app.route('/api/users/<int:userid>/posts', methods=['GET','POST','DELETE'])
+@requires_auth
 def userPosts(userid):
     form = PostsForm()
     if request.method == 'GET':
@@ -213,7 +242,8 @@ def userPosts(userid):
                 msg = "You can only create posts for yourself. Your id is {} and you are trying to create a post for user with the id {}".format(current_user.id,userid)
                 return jsonify(error=er , message = msg),401
                 
-@app.route('/api/users/<userid>/follow', methods = ['POST'])
+@app.route('/api/users/<userid>/follow', methods = ['POST','PUT'])
+@requires_auth
 def follow(userid):
     if request.method == 'POST':
         current = current_user
@@ -229,10 +259,35 @@ def follow(userid):
             er = True
             msg ="Target user doesn't exists"
             return jsonify(error=er,message=msg),404
+    elif request.method == 'PUT':
+        current = current_user
+        target = UserProfile.query.filter_by(id = userid).first()
+        if target is not None:
+            def check_if_currentuser_is_following(current,target):
+                follows = UserFollows.query.all()
+                for follow in follows:
+                    if follow.user_id == current.id and follow.follow_id == target.id:
+                        db.session.delete(follow)
+                        db.session.commit()
+                        return True
+                return False
+            if check_if_currentuser_is_following(current,target):
+                er = None
+                msg ="{} has unfollowed {}".format(current.user_name,target.user_name)
+                return jsonify(error=er,message=msg),202
+            else:
+                er = True
+                msg ="{} is not following {}, so he/she can't unfollow {}".format(current.user_name,target.user_name,target.user_name)
+                return jsonify(error=er,message=msg),202
+        else:
+            er = True
+            msg ="Target user doesn't exists"
+            return jsonify(error=er,message=msg),404
     else:
         abort(405)
 
 @app.route('/api/posts/<int:postid>/like', methods=['POST'])
+@requires_auth
 def like(postid):
     if request.method == 'POST':
         user = current_user
@@ -264,6 +319,7 @@ def like(postid):
   
 #returns user's information      
 @app.route('/api/u/<int:id>', methods=['GET','POST'])
+@requires_auth
 def userInfo(id):
     if request.method == 'GET':
         user = UserProfile.query.filter_by(id = id).first()
@@ -298,6 +354,7 @@ def userInfo(id):
 
 #checks if the current user is following a specific user        
 @app.route('/api/users/follows/<int:id>',methods=['GET','POST'])
+@requires_auth
 def followChecker(id):
     current = current_user
     target_user = UserProfile.query.filter_by(id = id).first()
@@ -325,6 +382,35 @@ def followChecker(id):
     msg="Follow status successfully fetched"
     return jsonify(error=er,message=msg,current_following_target=current_following_target)
     
+@app.route('/api/users/posts/<int:id>', methods=['DELETE'])
+@requires_auth
+def DeletePost(id):
+    if request.method == 'DELETE':
+        post = UserPosts.query.filter_by(user_id=id).first()
+        if post is not None:
+            user  = current_user
+            if post.user_id == user.id:
+                db.session.delete(post)
+                db.session.commit()
+                er=None
+                gender = user.gender
+                if gender == 'male':
+                    pronoun = 'his'
+                else:
+                    pronoun = 'her'
+                msg= "{} deleted {} post titled {}".format(user.user_name,pronoun,post.title)
+                return jsonify(error=er,message=msg),202
+            else:
+                er=True
+                msg="A user cannot delete a post that they didn't create"
+                return jsonify(error=er,message=msg),404
+        else:
+            er=True
+            msg="Post with the id of {} doesn't exist".format(id)
+            return jsonify(error=er,message=msg),404   
+    else:
+        abort(405)
+    
         
 @app.route('/token',methods=['POST'])
 @csrf.exempt
@@ -333,7 +419,7 @@ def generate_token():
     secret = app.config['SECRET_KEY']
     token = jwt.encode(payload, secret, algorithm='HS256')
 
-    return jsonify(error=None, data=[{'token': token}], message="Token Generated")
+    return jsonify(error=None, data=[{'token': token}], message="Token Generated"),201
 
 
 ###
@@ -356,35 +442,7 @@ def form_errors(form):
 def format_date_joined(d):
     return d.strftime("%d %b, %Y");
 
-def requires_auth(f):
-  @wraps(f)
-  def decorated(*args, **kwargs):
-    auth = request.headers.get('Authorization', None)
-    if not auth:
-      return jsonify({'code': 'authorization_header_missing', 'description': 'Authorization header is expected'}), 401
 
-    parts = auth.split()
-
-    if parts[0].lower() != 'bearer':
-      return jsonify({'code': 'invalid_header', 'description': 'Authorization header must start with Bearer'}), 401
-    elif len(parts) == 1:
-      return jsonify({'code': 'invalid_header', 'description': 'Token not found'}), 401
-    elif len(parts) > 2:
-      return jsonify({'code': 'invalid_header', 'description': 'Authorization header must be Bearer + \s + token'}), 401
-
-    token = parts[1]
-    try:
-         payload = jwt.decode(token, 'some-secret')
-
-    except jwt.ExpiredSignature:
-        return jsonify({'code': 'token_expired', 'description': 'token is expired'}), 401
-    except jwt.DecodeError:
-        return jsonify({'code': 'token_invalid_signature', 'description': 'Token signature is invalid'}), 401
-
-    g.current_user = user = payload
-    return f(*args, **kwargs)
-
-  return decorated
     
 @login_manager.user_loader
 def load_user(id):
