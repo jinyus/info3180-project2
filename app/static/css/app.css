@@ -122,10 +122,6 @@ input[type="submit"] {
   margin-right: 10px;
 }
 
-.posted-img {
-  
-}
-
 .posted-img img, #modal-photo {
   max-width: 100%;
   margin: auto;
@@ -161,12 +157,23 @@ input[type="submit"] {
   margin-right: 40px;
 }
 
+.like-btn, .follow-btn {
+  background: none;
+  color: inherit;
+  border: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  outline: inherit;
+}
+
 .follow-btn {
   clear: both;
   color: white;
   border-radius: 4px;
   background-color: #008cff;
   line-height: 40px;
+  width: 100%;
 }
 
 .follow-btn:hover {
@@ -215,4 +222,20 @@ input[type="submit"] {
 
 .modal-content {
   color: #464646;
+}
+
+.heart-red {
+  color: #ff0039;
+}
+
+#likeModal .modal-footer, #followModal .modal-footer {
+  border-top: none;
+}
+
+.following {
+  background-color: #32ec00;
+}
+
+#following-text {
+  display: block;
 }

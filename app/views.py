@@ -59,7 +59,7 @@ def register():
             db.session.commit()
             
             er = None
-            msg = "User Create Successfully"
+            msg = "User Created Successfully"
             userData = {'id': newuser.id, 
             'email': newuser.email,
             'usernname': newuser.user_name, 
@@ -71,10 +71,10 @@ def register():
             'profile_pic': newuser.pic, 
             'joined': newuser.joined_on}
             
-            return jsonify(error = er , data = {"newuser": userData}, message = msg)
+            return jsonify(error = er , data = {"newuser": userData}, message = msg),201
         else:
             msg = "Username and/or email already exist"
-            return jsonify(error=[msg], message="Username and/or email already exist")
+            return jsonify(error=[msg], message="Username and/or email already exist"),400
     else:
         return jsonify(errors = form_errors(form))
 
@@ -99,7 +99,7 @@ def login():
                 msg = 'Invalid username or password'
                 return jsonify(errors = [msg], message = msg)
         else:
-            return jsonify(errors = form_errors(form))
+            return jsonify(errors = form_errors(form)),400
     else:
         abort (405)
         
@@ -118,6 +118,21 @@ def Posts():
     if request.method == 'GET':
         allposts = UserPosts.query.all()
         posts_list = []
+        user = current_user
+        if not user.is_authenticated:
+            er=True
+            msg="You must log in to view posts"
+            return jsonify(errors = er, message = msg),401
+        def check_if_current_user_likes(user,post):
+            likes = UserLikes.query.all()
+            for like in likes:
+                if like.user_id == user.id and like.post_id == post.id:
+                    return True
+            return False
+        if allposts is None:
+            er=True
+            msg ="There are no posts in the database"
+            return jsonify(errors = er, message = msg),404
         for post in allposts:
             post_creator = UserProfile.query.filter_by(id=post.user_id).first()
             profile_pic = post_creator.pic
@@ -130,7 +145,8 @@ def Posts():
             "userid":post.user_id,
             "pic":post.pic,
             "caption":post.caption,
-            "created_on":post.created_on
+            "created_on":post.created_on,
+            "likes_by_current_user":check_if_current_user_likes(user,post)
             }
             posts_list.append(post_dict)
         er =None
@@ -169,11 +185,11 @@ def userPosts(userid):
             else:
                er = True
                msg = "User has no posts"
-               return jsonify(error=er,message=msg)
+               return jsonify(error=er,message=msg),404
         else:
             er=True
             msg = "User does not exist"
-            return jsonify(error=er,message=msg)
+            return jsonify(error=er,message=msg),404
     elif request.method == 'POST':
         if form.validate_on_submit():
             if current_user.id == userid:
@@ -190,13 +206,13 @@ def userPosts(userid):
                 
                 er = None
                 msg = "Post created successfully"
-                return jsonify(error=er, message=msg)
+                return jsonify(error=er, message=msg),201
             else:
                 er=True
                 msg = "You can only create posts for yourself. Your id is {} and you are trying to create a post for user with the id {}".format(current_user.id,userid)
-                return jsonify(error=er , message = msg)
+                return jsonify(error=er , message = msg),401
                 
-@app.route('/api/users/<userid>/follow',methods = ['POST'])
+@app.route('/api/users/<userid>/follow', methods = ['POST'])
 def follow(userid):
     if request.method == 'POST':
         current = current_user
@@ -207,45 +223,57 @@ def follow(userid):
             db.session.commit()
             er = None
             msg ="{} is now following {}".format(current.user_name,target.user_name)
-            return jsonify(error=er,message=msg)
+            return jsonify(error=er,message=msg),202
         else:
             er = True
             msg ="Target user doesn't exists"
-            return jsonify(error=er,message=msg)
+            return jsonify(error=er,message=msg),404
     else:
         abort(405)
 
-@app.route('/api/posts/<postid>/like', methods=['POST'])
+@app.route('/api/posts/<int:postid>/like', methods=['POST'])
 def like(postid):
     if request.method == 'POST':
         user = current_user
         post = UserPosts.query.filter_by(id = postid).first()
+        def check_if_user_liked_already(user,post):
+            likes = UserLikes.query.all()
+            for like in likes:
+                if like.user_id == user.id and like.post_id == post.id:
+                    return True
+            return False
         if post is not None:
+            if check_if_user_liked_already(user,post):
+                er =True
+                msg = "{} already likes this post".format(user.user_name)
+                return jsonify(error=er,message=msg),403
             new_like = UserLikes(user.id,post.id)
             db.session.add(new_like)
             db.session.commit()
         
             er=None
             msg ="{} liked this post".format(user.user_name)
-            return jsonify(error=er,message=msg)
+            return jsonify(error=er,message=msg),202
         else:
             er=True
             msg ="Invalid post id"
-            return jsonify(error=er,message=msg)
+            return jsonify(error=er,message=msg),404
     else:
         abort(405)
-        
+  
+#returns user's information      
 @app.route('/api/u/<int:id>', methods=['GET','POST'])
 def userInfo(id):
     if request.method == 'GET':
         user = UserProfile.query.filter_by(id = id).first()
         if user is not None:
             posts_count = UserPosts.query.filter_by(user_id=id).count()
-            follower_count = UserFollows.query.filter_by(user_id=id).count()
+            follower_count = UserFollows.query.filter_by(follow_id=id).count()
+            following_count = UserFollows.query.filter_by(user_id=id).count()
             userData = {
             'id': user.id, 
             'email': user.email,
-            'usernname': user.user_name, 
+            'username': user.user_name, 
             'gender': user.gender, 
             'firstname': user.first_name, 
             'lastname': user.last_name, 
@@ -254,6 +282,7 @@ def userInfo(id):
             'profile_pic': user.pic, 
             'joined': user.joined_on,
             'follower_count': follower_count,
+            'following_count':following_count,
             'posts_count':posts_count
             }
             er = None
@@ -262,9 +291,39 @@ def userInfo(id):
         else:
             er = True
             msg= "User doesn't exist"
-            return jsonify(error=er,message=msg)
+            return jsonify(error=er,message=msg),404
     else:
         abort(405)
+
+#checks if the current user is following a specific user        
+@app.route('/api/users/follows/<int:id>',methods=['GET','POST'])
+def followChecker(id):
+    current = current_user
+    target_user = UserProfile.query.filter_by(id = id).first()
+    
+    if target_user is None:
+        er=True
+        msg="Target user with the id {} doesn't exist".format(id)
+        return jsonify(error=er,message=msg),404
+    
+    
+    if current.id == target_user.id:
+        er=True
+        msg="A User cannot follow themselves"
+        current_following_target = False
+        return jsonify(error=er,message=msg,current_following_target=current_following_target)
+        
+    def check_if_currentuser_is_following(current,target):
+            follows = UserFollows.query.all()
+            for follow in follows:
+                if follow.user_id == current.id and follow.follow_id == target.id:
+                    return True
+            return False
+    current_following_target= check_if_currentuser_is_following(current,target_user)
+    er=None
+    msg="Follow status successfully fetched"
+    return jsonify(error=er,message=msg,current_following_target=current_following_target)
+    
         
 @app.route('/token')
 def generate_token():

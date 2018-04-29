@@ -121,7 +121,7 @@ class UserFollows(db.Model):
     follow_id = db.Column(db.Integer)
     
     def __init__(self, following_id, followed_id):
-        self.userid = following_id
+        self.user_id = following_id
         self.follow_id = followed_id
 
     def is_authenticated(self):

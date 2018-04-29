@@ -98,11 +98,24 @@ const Home = Vue.component('home', {
 
 const Explore = Vue.component('explore', {
     template: `
-    <div>
+    <div @mouseover="addEvents()">
       <router-link class="post-btn btn btn-primary font-weight-bold" to="/posts/new">New Post<span class="sr-only">(current)</span></router-link>
       <div v-for="post in posts">
         <div v-html="post"></div>
       </div>
+      
+      <div class="modal fade" id="likeModal" role="dialog">
+        <div class="modal-dialog modal-lg">
+          <div class="modal-content">
+            <div class="modal-header">
+              <span class="font-weight-bold">You already liked this post!</span>
+              <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-footer"></div>
+          </div>
+        </div>
+      </div>
+      
     </div>
     `,
     
@@ -112,9 +125,59 @@ const Explore = Vue.component('explore', {
       }
     },
     
+    methods: {
+      addEvents: function() {
+        let posts = document.getElementsByClassName("like");
+        let eventAdded = true;
+        let clicked = false;
+        
+        for (i=0; i<posts.length; i++) {
+          let id = (posts[i].getAttribute("id"));
+          let likes = parseInt(posts[i].lastChild.textContent.slice(0, -6));
+          
+          if (posts[i].getAttribute("event-added") == "false") {
+            posts[i].addEventListener("click", function(e) {
+              likes++;
+              clicked = true;
+              
+              fetch("/api/posts/" + id + "/like", {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': token
+                    },
+                    credentials: 'same-origin'
+                })
+                .then(function (response) {
+                    return response.json();
+                })
+                .then(function (jsonResponse) {
+                // display a success message
+                    self.errors = jsonResponse.errors;
+                    console.log(jsonResponse);
+                })
+                .catch(function (error) {
+                    console.log(error);
+              });
+              
+              this.setAttribute("clicked", clicked);
+              if (this.getAttribute("clicked") == "true") {
+                this.setAttribute("disabled", "true");
+                this.innerHTML = '<span data-toggle="modal" data-target="#likeModal"><span class="like-icon"><i class="fa fa-heart-o heart-red"></i></span>' + likes + ' Likes</span>';
+              }
+              console.log(likes);
+            });
+            posts[i].setAttribute("event-added", eventAdded);
+          }
+        }
+      }
+
+    },
+    
     created : function(){
       let self = this;
       let post = '';
+      let likeBtn = '';
+      let likeIcon = '';
       fetch("/api/posts/", {
       method: 'GET',
       headers: {
@@ -131,12 +194,19 @@ const Explore = Vue.component('explore', {
         
         let p = jsonResponse.posts;
         for (i = 0; i < p.length; i++){
+          if (p[i].likes_by_current_user == false) {
+            likeBtn = '<button event-added="false" clicked="false" class="like like-btn font-weight-bold" id="';
+            likeIcon = '"><span><span class="like-icon"><i class="fa fa-heart-o"></i></span>';
+          } else {
+            likeBtn = '<button data-toggle="tooltip" title="You liked this post!" data-placement="top" disabled="true" class="like like-btn font-weight-bold" id="'; 
+            likeIcon = '"><span data-toggle="modal" data-target="#likeModal"><span class="like-icon"><i class="fa fa-heart-o heart-red"></i></span>';
+          }
+          
           post += '<div class="form, post"><div class="post-header"><a href="#/users/' + p[i].userid + 
                   '"><img src="static/uploads/' + p[i].profile_pic + '"/><span>' + p[i].Post_creator + '</span></a>' +
                   '</div><div class="posted-img text-center"><img src="static/uploads/' + p[i].pic + '"/></div>' +
-                  '<div class="caption">' + p[i].caption + '</div><div class="post-footer">' + 
-                  '<span><span class="like-icon"><i class="fa fa-heart-o"></i></span>' + p[i].likes +
-                  ' Likes</span><span class="float-right">' + p[i].created_on + '</span></div></div>';
+                  '<div class="caption">' + p[i].caption + '</div><div class="post-footer">' + likeBtn + p[i].id + likeIcon + p[i].likes +
+                  ' Likes</span></button><span class="float-right">' + p[i].created_on + '</span></div></div>';
           
           self.posts.push(post);
           post = '';
@@ -162,6 +232,28 @@ const Profile = Vue.component('profile', {
             <p class="font-weight-bold">{{followers}}<p/>
             <p>Followers<p/>
           </div>
+          
+          <div v-if="!currentUser">
+            <div v-if="following">
+              <button data-toggle="tooltip" title="You're following this user!" disabled="true" class="follow-btn font-weight-bold following"><span data-toggle="modal" data-target="#followModal" id="following-text">Following</span></button>
+            </div>
+            <div v-else>
+              <button @click="follow($event)" class="follow-btn font-weight-bold">Follow</button>
+            </div>
+          </div>
+          
+          <div class="modal fade" id="followModal" role="dialog">
+            <div class="modal-dialog modal-lg">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <span class="font-weight-bold">You're already following this user!</span>
+                  <button type="button" class="close" data-dismiss="modal">&times;</button>
+                </div>
+                <div class="modal-footer"></div>
+              </div>
+            </div>
+          </div>
+        
         </div>
         <div class="profile-mid">
           <p class="font-weight-bold p-name">{{firstname}} {{lastname}}</p>
@@ -200,7 +292,6 @@ const Profile = Vue.component('profile', {
     </div>
     `,
     
-    // <div class="follow-btn font-weight-bold">Follow</div>
     
     data(){
       return{
@@ -212,7 +303,9 @@ const Profile = Vue.component('profile', {
         bio: "",
         joined: "",
         followers: "",
-        post_count: ""
+        post_count: "",
+        currentUser: false,
+        following: false
       }
     },
     
@@ -235,11 +328,48 @@ const Profile = Vue.component('profile', {
             modalUsername.innerHTML =  self.userPosts[i].username;;
           }
         }
+      },
+      
+      follow: function(e) {
+        let self = this;
+        self.followers++;
+        let followBtn = document.querySelector(".follow-btn");
+        followBtn.setAttribute("disabled", true);
+        followBtn.classList.add("following");
+        followBtn.textContent = "Following";
+        
+        fetch("/api/users/" + this.$parent.userID + "/follow", {
+          method: 'POST',
+          headers: {
+              'X-CSRFToken': token
+              },
+              credentials: 'same-origin'
+          })
+          .then(function (response) {
+              return response.json();
+          })
+          .then(function (jsonResponse) {
+          // display a success message
+              self.errors = jsonResponse.errors;
+              console.log(jsonResponse);
+          })
+          .catch(function (error) {
+              console.log(error);
+        });
       }
     },
     
     created : function(){
       let self = this;
+      let urlPath = window.location.href.split("/");
+      let url_ID = urlPath[urlPath.length - 1];
+      
+      if (url_ID ==  this.$parent.current_userID) {
+        self.currentUser = true;
+      }
+      
+      this.$parent.userID = url_ID;
+      console.log(url_ID);
       fetch("/api/u/" + this.$parent.userID, {
       method: 'GET',
       headers: {
@@ -296,6 +426,30 @@ const Profile = Vue.component('profile', {
         }
       })
       .catch(function (error) {
+          console.log(error);
+      });
+      
+      fetch("/api/users/follows/" + this.$parent.userID, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': token
+          },
+          credentials: 'same-origin'
+        })
+        .then(function (response) {
+          return response.json();
+        })
+        .then(function (jsonResponse) {
+        // display a success message
+          self.errors = jsonResponse.errors;
+          
+          if (jsonResponse.current_following_target){
+            self.following = true;
+          }
+          
+          console.log(jsonResponse);
+        })
+        .catch(function (error) {
           console.log(error);
       });
     }
@@ -538,25 +692,24 @@ const Register_form = Vue.component('register-form', {
 const router = new VueRouter({
     data: function(){
       return {
-        userPath: "",
+        // userPath: "",
         userid : null
       }
     },
     
-    created() {
-      let self = this;
-      event.$on("loggedIn", function(id){
-        self.userPath = "/users/" + id;
-        self.userid=id;
-      });
-    },
+    // created() {
+    //   let self = this;
+    //   event.$on("loggedIn", function(id){
+    //     self.userPath = "/users/" + id;
+    //     self.userid=id;
+    //   });
+    // },
     
     routes: [
         {path: "/", component: Home },
         {path: "/login", component: Login_form},
         {path: "/register", component: Register_form},
         {path: "/explore", component: Explore},
-        //{path: "" + this.userPath, component: Profile},
         {path: "/users/:userid", component: Profile},
         {path: "/testing", component: Profile},
         {path: "/posts/new", component: Posts},
@@ -569,7 +722,8 @@ let app = new Vue({
     el: "#app",
     data : {
         token : '',
-        userID: null
+        userID: null,
+        current_userID: null
     },
     methods: {
         // Usually the generation of a JWT will be done when a user either registers
@@ -605,6 +759,7 @@ let app = new Vue({
       let self = this;
       event.$on("loggedIn", function(id){
         self.userID =  id;
+        self.current_userID =  id;
       });
     },
     
