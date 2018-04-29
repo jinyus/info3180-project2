@@ -5,7 +5,7 @@ Werkzeug Documentation:  http://werkzeug.pocoo.org/documentation/
 This file creates your application.
 """
 
-from app import app, db, login_manager,csrf
+from app import app, db, login_manager
 from werkzeug.utils import secure_filename
 from flask import render_template, request, redirect, url_for, flash,jsonify,abort,g 
 import os
@@ -17,7 +17,6 @@ import jwt
 from flask import _request_ctx_stack
 from functools import wraps
 import base64
-from flask_wtf.csrf import CSRFError
 
 
 ###
@@ -266,7 +265,7 @@ def like(postid):
 @app.route('/api/u/<int:id>', methods=['GET','POST'])
 def userInfo(id):
     if request.method == 'GET':
-        user = UserProfile.query.filter_by(id = id).first()
+    if request.method == 'GET':
         if user is not None:
             posts_count = UserPosts.query.filter_by(user_id=id).count()
             follower_count = UserFollows.query.filter_by(follow_id=id).count()
@@ -326,14 +325,12 @@ def followChecker(id):
     return jsonify(error=er,message=msg,current_following_target=current_following_target)
     
         
-@app.route('/token',methods=['POST'])
-@csrf.exempt
+@app.route('/token')
 def generate_token():
-    payload = request.get_json()
-    secret = app.config['SECRET_KEY']
-    token = jwt.encode(payload, secret, algorithm='HS256')
+    payload = r
+    token = jwt.encode(payload, 'some-secret', algorithm='HS256')
 
-    return jsonify(error=None, data=[{'token': token}], message="Token Generated")
+    return jsonify(error=None, data={'token': token}, message="Token Generated")
 
 
 ###

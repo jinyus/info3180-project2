@@ -18,8 +18,8 @@ Vue.component('app-header', {
           <li v-if="loggedIn" class="nav-item">
             <router-link class="nav-link" to="/explore">Explore<span class="sr-only">(current)</span></router-link>
           </li>
-          <li v-if="loggedIn" class="nav-item">
-            <router-link class="nav-link" :to="userPath">My Profile<span class="sr-only">(current)</span></router-link>
+          <li v-if="loggedIn" class="nav-item" @click="this.$parent.updateProfile">
+            <router-link class="nav-link" :to="userPath" >My Profile<span class="sr-only">(current)</span></router-link>
           </li>
           <li v-if="!loggedIn" class="nav-item">
             <router-link class="nav-link" to="/register">Register<span class="sr-only">(current)</span></router-link>
@@ -143,7 +143,8 @@ const Explore = Vue.component('explore', {
               fetch("/api/posts/" + id + "/like", {
                 method: 'POST',
                 headers: {
-                    'X-CSRFToken': token
+                    'X-CSRFToken': token,
+                    'Authorization': 'Bearer ' + localStorage.getItem('token')
                     },
                     credentials: 'same-origin'
                 })
@@ -181,7 +182,8 @@ const Explore = Vue.component('explore', {
       fetch("/api/posts/", {
       method: 'GET',
       headers: {
-          'X-CSRFToken': token
+          'X-CSRFToken': token,
+          'Authorization': 'Bearer ' + localStorage.getItem('token')
           },
           credentials: 'same-origin'
       })
@@ -221,6 +223,7 @@ const Explore = Vue.component('explore', {
 const Profile = Vue.component('profile', {
     template: `
     <div>
+        <div v-if="this.$parent.show">
       <div class="form profile-header">
         <img class="float-left" :src="photo"/>
         <div class="profile-right float-right text-center">
@@ -289,6 +292,7 @@ const Profile = Vue.component('profile', {
         </div>
         
       </div>
+      </div>
     </div>
     `,
     
@@ -341,7 +345,8 @@ const Profile = Vue.component('profile', {
         fetch("/api/users/" + this.$parent.userID + "/follow", {
           method: 'POST',
           headers: {
-              'X-CSRFToken': token
+              'X-CSRFToken': token,
+              'Authorization': 'Bearer ' + localStorage.getItem('token')
               },
               credentials: 'same-origin'
           })
@@ -373,7 +378,8 @@ const Profile = Vue.component('profile', {
       fetch("/api/u/" + this.$parent.userID, {
       method: 'GET',
       headers: {
-          'X-CSRFToken': token
+          'X-CSRFToken': token,
+          'Authorization': 'Bearer ' + localStorage.getItem('token')
           },
           credentials: 'same-origin'
       })
@@ -401,7 +407,8 @@ const Profile = Vue.component('profile', {
       fetch("/api/users/" + this.$parent.userID + "/posts", {
       method: 'GET',
       headers: {
-          'X-CSRFToken': token
+          'X-CSRFToken': token,
+          'Authorization': 'Bearer ' + localStorage.getItem('token')
           },
           credentials: 'same-origin'
       })
@@ -432,7 +439,8 @@ const Profile = Vue.component('profile', {
       fetch("/api/users/follows/" + this.$parent.userID, {
         method: 'POST',
         headers: {
-          'X-CSRFToken': token
+          'X-CSRFToken': token,
+          'Authorization': 'Bearer ' + localStorage.getItem('token')
           },
           credentials: 'same-origin'
         })
@@ -492,7 +500,8 @@ const Posts = Vue.component('posts', {
         method: 'POST',
         body : form_data,
         headers: {
-            'X-CSRFToken': token
+            'X-CSRFToken': token,
+            'Authorization': 'Bearer ' + localStorage.getItem('token')
             },
             credentials: 'same-origin'
         })
@@ -581,7 +590,8 @@ const Logout = Vue.component('logout', {
       fetch("/api/auth/logout", {
       method: 'POST',
       headers: {
-          'X-CSRFToken': token
+          'X-CSRFToken': token,
+          'Authorization': 'Bearer ' + localStorage.getItem('token')
           },
           credentials: 'same-origin'
       })
@@ -721,9 +731,10 @@ const router = new VueRouter({
 let app = new Vue({
     el: "#app",
     data : {
-        token : '',
+        jwttoken : '',
         userID: null,
-        current_userID: null
+        current_userID: null,
+        show:true
     },
     methods: {
         // Usually the generation of a JWT will be done when a user either registers
@@ -731,7 +742,15 @@ let app = new Vue({
         getToken: function () {
             let self = this;
 
-            fetch('/token')
+            fetch('/token',{
+              method: 'post',
+              headers: {
+                'X-CSRFToken': token,
+                'Content-Type': 'application/json'
+                
+              },
+              body: JSON.stringify({'id': this.UserID})
+            })
                 .then(function (response) {
                     return response.json();
                 })
@@ -742,7 +761,7 @@ let app = new Vue({
                     // can use the token until it expires or is deleted.
                     localStorage.setItem('token', jwt_token);
                     console.info('Token generated and added to localStorage.');
-                    self.token = jwt_token;
+                    self.jwttoken = jwt_token;
                 })
         },
         // Remove token stored in localStorage.
@@ -751,8 +770,17 @@ let app = new Vue({
         removeToken: function () {
             localStorage.removeItem('token');
             console.info('Token removed from localStorage.');
-            alert('Token removed!');
-        }
+        },
+        updateProfile(){    
+            var self = this;
+            self.show = false;
+            
+              function updatePro(){
+              console.log("Profile updated");
+              self.show = true;
+            }
+            updatePro();
+          }
     },
     
     created : function() {
@@ -760,6 +788,10 @@ let app = new Vue({
       event.$on("loggedIn", function(id){
         self.userID =  id;
         self.current_userID =  id;
+        self.getToken();
+      });
+      event.$on("loggedOut", function(id){
+        self.removeToken();
       });
     },
     

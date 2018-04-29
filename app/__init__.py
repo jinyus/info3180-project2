@@ -8,9 +8,10 @@ from flask_wtf.csrf import CSRFProtect
 app = Flask(__name__)
 
 app.config['UPLOAD_FOLDER'] = "./app/static/uploads"
-app.config['SECRET_KEY'] = "some$3443"
+app.config['SECRET_KEY'] = "some$3448eiwjkse3"
 app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://admin:secret@localhost/project1"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
+
 
 db = SQLAlchemy(app)
 

@@ -5,7 +5,7 @@ Werkzeug Documentation:  http://werkzeug.pocoo.org/documentation/
 This file creates your application.
 """
 
-from app import app, db, login_manager,csrf
+from app import app, db, login_manager
 from werkzeug.utils import secure_filename
 from flask import render_template, request, redirect, url_for, flash,jsonify,abort,g 
 import os
@@ -17,7 +17,6 @@ import jwt
 from flask import _request_ctx_stack
 from functools import wraps
 import base64
-from flask_wtf.csrf import CSRFError
 
 
 ###
@@ -283,7 +282,7 @@ def userInfo(id):
             'profile_pic': user.pic, 
             'joined': user.joined_on,
             'follower_count': follower_count,
-            'following_count':following_count,
+            'following_count':following_
             'posts_count':posts_count
             }
             er = None
@@ -326,14 +325,12 @@ def followChecker(id):
     return jsonify(error=er,message=msg,current_following_target=current_following_target)
     
         
-@app.route('/token',methods=['POST'])
-@csrf.exempt
+@app.route('/token')
 def generate_token():
-    payload = request.get_json()
-    secret = app.config['SECRET_KEY']
-    token = jwt.encode(payload, secret, algorithm='HS256')
+    payload = r
+    token = jwt.encode(payload, 'some-secret', algorithm='HS256')
 
-    return jsonify(error=None, data=[{'token': token}], message="Token Generated")
+    return jsonify(error=None, data={'token': token}, message="Token Generated")
 
 
 ###
